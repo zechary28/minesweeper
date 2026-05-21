@@ -1,20 +1,20 @@
 #include <raylib.h>
-#include "game-of-life.h"
-#include "rules_setup.h"
+#include "minesweeper.h"
 
 int main() 
 {    
     constexpr int screenWidth = 800;
     constexpr int screenHeight = 600;
-    int cellSize = 10;
+    int cellSize = 50;
     
-    InitWindow(screenWidth, screenHeight, "Game of Life");
-    SetTargetFPS(10);
+    InitWindow(screenWidth, screenHeight, "Minesweeper");
+    SetTargetFPS(60);
 
-    GameOfLife life(screenWidth / cellSize, screenHeight / cellSize, cellSize);
-    life.Randomize(0.33f);
+    Minesweeper minesweeper(screenWidth / cellSize, screenHeight / cellSize, cellSize);
+    minesweeper.Randomize(0.15f);
     
     float timer = 0.0f;
+    float period = 0.02f;
     
     while (!WindowShouldClose())
     {        
@@ -25,19 +25,26 @@ int main()
         {
             Vector2 mouse = GetMousePosition();
             int x = mouse.x/cellSize;
-            int y = mouse.y/cellSize;       
-            life.ToggleCell(x, y);
+            int y = mouse.y/cellSize;
+            minesweeper.RevealCell(x, y);
+        }
+        else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+        {
+            Vector2 mouse = GetMousePosition();
+            int x = mouse.x/cellSize;
+            int y = mouse.y/cellSize;
+            minesweeper.FlagCell(x, y);
         }
 
-        if (timer >= 0.01f)
+        if (timer >= period)
         {
-            life.Update();
-            timer -= 0.01f;   // keep leftover time
+            minesweeper.Update();
+            timer -= period;   // keep leftover time
         }
 
         BeginDrawing();
         ClearBackground(DARKGRAY);
-        life.Draw();
+        minesweeper.Draw();
 
         EndDrawing();
     }
