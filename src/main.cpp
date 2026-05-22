@@ -5,14 +5,16 @@ int main()
 {    
     constexpr int screenWidth = 800;
     constexpr int screenHeight = 600;
-    int cellSize = 50;
+    int cellSize = 20;
+    float mineProbability = 0.15f;
     
     InitWindow(screenWidth, screenHeight, "Minesweeper");
     SetTargetFPS(60);
 
     Minesweeper minesweeper(screenWidth / cellSize, screenHeight / cellSize, cellSize);
-    minesweeper.Randomize(0.15f);
     
+    bool generated = false;
+    bool reset = false;
     float timer = 0.0f;
     float period = 0.02f;
     
@@ -21,25 +23,67 @@ int main()
         float dt = GetFrameTime(); // seconds since last frame
         timer += dt;
 
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        // first click
+        if (!generated)
         {
-            Vector2 mouse = GetMousePosition();
-            int x = mouse.x/cellSize;
-            int y = mouse.y/cellSize;
-            minesweeper.RevealCell(x, y);
-        }
-        else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
-        {
-            Vector2 mouse = GetMousePosition();
-            int x = mouse.x/cellSize;
-            int y = mouse.y/cellSize;
-            minesweeper.FlagCell(x, y);
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                Vector2 mouse = GetMousePosition();
+                int x = mouse.x/cellSize;
+                int y = mouse.y/cellSize;
+                minesweeper.GenerateMines(mineProbability, x, y);
+                generated = true;
+                minesweeper.RevealCell(x, y);
+            }
         }
 
-        if (timer >= period)
+        // game ongoing
+        else if (!minesweeper.IsWon() && !minesweeper.IsLost())
         {
-            minesweeper.Update();
-            timer -= period;   // keep leftover time
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                Vector2 mouse = GetMousePosition();
+                int x = mouse.x/cellSize;
+                int y = mouse.y/cellSize;
+                minesweeper.RevealCell(x, y);
+            }
+            else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+            {
+                Vector2 mouse = GetMousePosition();
+                int x = mouse.x/cellSize;
+                int y = mouse.y/cellSize;
+                minesweeper.FlagCell(x, y);
+            }
+
+            if (timer >= period)
+            {
+                minesweeper.Update();
+                timer -= period;   // keep leftover time
+            }
+        }
+
+        // game won/lost
+        else if (minesweeper.IsWon() || minesweeper.IsLost())
+        {
+            reset = false;
+            // restart game
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                if (!reset) {
+                    minesweeper.ResetMap();
+                    reset = true;
+                    generated = false;
+                }
+                else
+                {
+                    Vector2 mouse = GetMousePosition();
+                    int x = mouse.x/cellSize;
+                    int y = mouse.y/cellSize;
+                    minesweeper.GenerateMines(mineProbability, x, y);
+                    generated = true;
+                    minesweeper.RevealCell(x, y);
+                }
+            }
         }
 
         BeginDrawing();

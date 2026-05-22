@@ -17,7 +17,7 @@ void Cell::Flag()
     flagged = !flagged;
 }
 
-bool Cell::reveallable()
+bool Cell::floodable()
 {
     return !visited && !flagged && !hasMine;
 }

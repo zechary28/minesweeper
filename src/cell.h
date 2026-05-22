@@ -9,5 +9,5 @@ public:
     int adjacentMines = 0;
     void Mark();
     void Flag();
-    bool reveallable();
+    bool floodable();
 };
