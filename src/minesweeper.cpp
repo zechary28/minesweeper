@@ -6,6 +6,7 @@ bool debug = false;
 
 // CLASSIC COLOR PALETTE
 Color baseColor = DARKGRAY;
+//Color themeColor = (Color){0xde, 0x73, 0x56, 0xff};
 Color themeColor = LIGHTGRAY;
 Color highlight = WHITE;
 Color numberColors[9] = {
@@ -22,9 +23,30 @@ Color numberColors[9] = {
 
 Minesweeper::Minesweeper(int width, int height, int cellSize)
     : width(width), height(height), cellSize(cellSize), won(false), lost(false),
+      //timer(0.0f), period(0.02f), generated(false), Solver(SelectionMode::NearestToLast),
       grid(width * height, Cell(false))
 {
 }
+
+// void Minesweeper::Update(float dt)
+// {
+
+// }
+
+// void Minesweeper::HandleInput()
+// {
+//     // move input handling from main.cpp here
+// }
+
+// bool Minesweeper::IsOver() const
+// {
+//     return won || lost;
+// }
+
+// void Minesweeper::Reset() const
+// {
+
+// }
 
 const Cell& Minesweeper::getCell(int x, int y) const
 {
@@ -39,6 +61,11 @@ int Minesweeper::getWidth() const
 int Minesweeper::getHeight() const
 {
     return height;
+}
+
+bool Minesweeper::IsIdle() const
+{
+    return revealQueue.empty() && bufferQueue.empty();
 }
 
 void Minesweeper::RevealCell(int x, int y)
@@ -85,6 +112,16 @@ void Minesweeper::SingleReveal(int x, int y)
     }
     bufferQueue.push({x, y});
 }
+
+// void Minesweeper::Update(float dt)
+// {
+//     if (dt >= period)
+//     {
+//         if (IsIdle()) solver.Step();
+//         minesweeper.Update();
+//         timer -= period;   // keep leftover time
+//     }
+// }
 
 // 1 time step, empty reveal queue and swap
 void Minesweeper::Update()
@@ -185,7 +222,8 @@ void Minesweeper::ResetMap()
         grid[i] = Cell(false);
     won = false;
     lost = false;
-
+    bufferQueue = {};
+    revealQueue = {};
 }
 
 void Minesweeper::GenerateMines(float probability, int x, int y)
@@ -215,9 +253,9 @@ int Minesweeper::index(int x, int y) const
     return width * y + x;
 }
 
-std::vector<std::pair<int, int>> Minesweeper::getNeighbours(int x, int y) const
+NeighbourList Minesweeper::getNeighbours(int x, int y) const
 {
-    std::vector<std::pair<int,int>> neighbours;
+    NeighbourList neighbours;
     for (int dx = -1; dx <= 1; dx++)
     for (int dy = -1; dy <= 1; dy++)
     {
@@ -225,9 +263,7 @@ std::vector<std::pair<int, int>> Minesweeper::getNeighbours(int x, int y) const
         int nx = x + dx;
         int ny = y + dy;
         if (nx >= 0 && nx < width && ny >= 0 && ny < height)
-        {
-            neighbours.push_back({nx, ny});
-        }
+            neighbours.cells[neighbours.count++] = {nx, ny};
     }
     return neighbours;
 }
