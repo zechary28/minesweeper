@@ -1,15 +1,16 @@
 #include "minesweeper.h"
+
 #include <raylib.h>
 #include <iostream>
 
 bool debug = false;
 
 // CLASSIC COLOR PALETTE
-Color baseColor = DARKGRAY;
+Color baseColor = (Color){0xd8, 0xc8, 0xa8, 0xff};
 //Color themeColor = (Color){0xde, 0x73, 0x56, 0xff};
-Color themeColor = LIGHTGRAY;
+Color themeColor = (Color){0xe8, 0xd5, 0xc4, 0xff};
 Color highlight = WHITE;
-Color numberColors[9] = {
+Color numberColorsClassic[9] = {
         WHITE, 
         BLUE,
         DARKGREEN, 
@@ -21,32 +22,158 @@ Color numberColors[9] = {
         DARKGRAY
     };
 
-Minesweeper::Minesweeper(int width, int height, int cellSize)
-    : width(width), height(height), cellSize(cellSize), won(false), lost(false),
-      //timer(0.0f), period(0.02f), generated(false), Solver(SelectionMode::NearestToLast),
-      grid(width * height, Cell(false))
+Color numberColorsPastel[9] = {
+        WHITE, 
+        (Color){0xd4, 0xe8, 0xf0, 0xff},
+        (Color){0xb8, 0xd4, 0xe3, 0xff}, 
+        (Color){0x95, 0xb8, 0xd1, 0xff},
+        DARKBLUE, 
+        MAROON, 
+        (Color){50, 150, 150, 255},
+        BLACK, 
+        DARKGRAY
+    };
+Color revealedColor = (Color){0xc4, 0xb5, 0xa5, 0xff};
+Color flaggedColor = (Color){0xf4, 0xa5, 0xa5, 0xff};
+
+static Color getTheme(ThemeColor t)      { return ColorFromHSV(t.h, t.s, t.v); }
+static Color getShade(ThemeColor t)      { return ColorFromHSV(t.h, t.s * 0.8f, t.v * 0.75f); }
+static Color getComplement(ThemeColor t) { return ColorFromHSV(fmod(t.h + 150.f, 360.f), t.s, t.v); }
+
+Minesweeper::Minesweeper(int width, int height, int cellSize, float mineProbability, ThemeColor theme)
+    : width(width), height(height), cellSize(cellSize), mineProbability(mineProbability), won(false), lost(false),
+      timer(0.0f), period(0.05f), reset(false), generated(false),
+      grid(width * height, Cell(false)),
+      solver(SelectionMode::NearestToLast),
+      theme(theme)
 {
 }
 
-// void Minesweeper::Update(float dt)
-// {
 
-// }
+// IGame Interface
 
-// void Minesweeper::HandleInput()
-// {
-//     // move input handling from main.cpp here
-// }
+void Minesweeper::Update(float dt)
+{
+    timer += dt;
+    if (timer >= period)
+    {
+        if (IsIdle()) solver.Step(*this);
+        // update loop condition
+        while (!revealQueue.empty()) 
+        {
+            //int x = revealQueue.front().first;
+            //int y = revealQueue.front().second;
+            auto [x, y] = revealQueue.front();
+            revealQueue.pop();
+            Cell& cell = grid[index(x, y)];
+            cell.revealed = true;
 
-// bool Minesweeper::IsOver() const
-// {
-//     return won || lost;
-// }
+            // propagate to valid neighbours
+            if (!cell.hasMine && cell.adjacentMines == 0) // only flood fill from empty cells
+            {    
+                for (auto p : getNeighbours(x, y))
+                {
+                    Cell& neighbourCell = grid[index(p.first, p.second)];
+                    if (neighbourCell.floodable()) RevealCell(p.first, p.second);
+                }
+            }
+        }
+        CheckIsWon();
+        std::swap(revealQueue, bufferQueue);
+        timer -= period;   // keep leftover time
+    }
+}
 
-// void Minesweeper::Reset() const
-// {
+void Minesweeper::Draw() const
+{
+    for (int y = 0; y < height; ++y)
+    for (int x = 0; x < width; ++x)
+    {
+        DrawCell(grid[index(x,y)], x, y);
+    }
+}
 
-// }
+void Minesweeper::HandleInput()
+{
+    // first click
+    if (!generated)
+    {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            Vector2 mouse = GetMousePosition();
+            int x = mouse.x/cellSize;
+            int y = mouse.y/cellSize;
+            GenerateMines(mineProbability, x, y);
+            generated = true;
+            RevealCell(x, y);
+        }
+    }
+
+    // game ongoing
+    else if (!IsWon() && !IsLost())
+    {
+        // receive user input
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            Vector2 mouse = GetMousePosition();
+            int x = mouse.x/cellSize;
+            int y = mouse.y/cellSize;
+            //solver.Step();
+            RevealCell(x, y);
+        }
+        else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+        {
+            Vector2 mouse = GetMousePosition();
+            int x = mouse.x/cellSize;
+            int y = mouse.y/cellSize;
+            FlagCell(x, y);
+        }
+    }
+
+    // game won/lost
+    else if (IsWon() || IsLost())
+    {
+        reset = false;
+        // restart game
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            if (!reset) {
+                Reset();
+                reset = true;
+                generated = false;
+            }
+            else
+            {
+                Vector2 mouse = GetMousePosition();
+                int x = mouse.x/cellSize;
+                int y = mouse.y/cellSize;
+                GenerateMines(mineProbability, x, y);
+                generated = true;
+                RevealCell(x, y);
+            }
+        }
+    }
+}
+
+bool Minesweeper::IsOver() const
+{
+    return won || lost;
+}
+
+void Minesweeper::Reset()
+{
+    GenerateMines(mineProbability, width/2, height/2); // or a random start cell
+    won = false;
+    lost = false;
+    generated = true;
+    timer = 0.0f;
+    bufferQueue = {};
+    revealQueue = {};
+    RevealCell(width/2, height/2); // kick off the first reveal
+}
+
+
+// Helpers
 
 const Cell& Minesweeper::getCell(int x, int y) const
 {
@@ -113,43 +240,6 @@ void Minesweeper::SingleReveal(int x, int y)
     bufferQueue.push({x, y});
 }
 
-// void Minesweeper::Update(float dt)
-// {
-//     if (dt >= period)
-//     {
-//         if (IsIdle()) solver.Step();
-//         minesweeper.Update();
-//         timer -= period;   // keep leftover time
-//     }
-// }
-
-// 1 time step, empty reveal queue and swap
-void Minesweeper::Update()
-{
-    // update loop condition
-    while (!revealQueue.empty()) 
-    {
-        //int x = revealQueue.front().first;
-        //int y = revealQueue.front().second;
-        auto [x, y] = revealQueue.front();
-        revealQueue.pop();
-        Cell& cell = grid[index(x, y)];
-        cell.revealed = true;
-
-        // propagate to valid neighbours
-        if (!cell.hasMine && cell.adjacentMines == 0) // only flood fill from empty cells
-        {    
-            for (auto p : getNeighbours(x, y))
-            {
-                Cell& neighbourCell = grid[index(p.first, p.second)];
-                if (neighbourCell.floodable()) RevealCell(p.first, p.second);
-            }
-        }
-    }
-    CheckIsWon();
-    std::swap(revealQueue, bufferQueue);
-}
-
 void Minesweeper::CheckIsWon() {
     for (int i = 0; i < width * height; i++)
     {
@@ -172,58 +262,63 @@ bool Minesweeper::IsLost() const {
 
 void Minesweeper::DrawCell(Cell cell, int x, int y) const
 {
+    Color bg   = getShade(theme);
+    Color fg   = getTheme(theme);
+    Color flag = getComplement(theme);
+
     int border = 1;
-    int bigBorder = cellSize/8;
+    // int bigBorder = cellSize/8;
     int xPos = x * cellSize;
     int yPos = y * cellSize;
-    int textOffset = cellSize / 4;
-    Color color = cell.visited && debug ? SKYBLUE : themeColor;
+    // int textOffset = cellSize / 4;
+    // float scale = 1.0f;
+    // float animPadding = (cellSize / 2.0f) * (1.0f - scale);
+    // Color color = cell.visited && debug ? SKYBLUE : themeColor;
+
     // base colour
-    DrawRectangle(xPos, yPos, cellSize, cellSize, baseColor);
+    DrawRectangle(xPos, yPos, cellSize, cellSize, bg);
     if (!cell.revealed)
     {
         // highlight
-        float fx = (float)xPos;
-        float fy = (float)yPos;
-        float fs = (float)cellSize;
-        DrawTriangle((Vector2){fx, fy},
-                     (Vector2){fx, fy + fs},
-                     (Vector2){fx + fs, fy}, highlight);
+        // float fx = (float)xPos;
+        // float fy = (float)yPos;
+        // float fs = (float)cellSize;
+        // DrawTriangle((Vector2){fx, fy},
+        //              (Vector2){fx, fy + fs},
+        //              (Vector2){fx + fs, fy}, highlight);
         // center square
-        DrawRectangle(xPos + bigBorder, yPos + bigBorder, cellSize - (2 * bigBorder), cellSize - (2 * bigBorder), color);
+        // classic style
+        // DrawRectangle(xPos + bigBorder, yPos + bigBorder, cellSize - (2 * bigBorder), cellSize - (2 * bigBorder), color);
+        // modern
+        DrawRectangleRounded(
+                {(float)(xPos + border), (float)(yPos + border), (float)(cellSize - border), (float)(cellSize - border)}, 
+                0.3, 4, fg
+        );
         if (cell.flagged)
         {
-            DrawText("f", xPos + textOffset, yPos + textOffset, cellSize/2, RED);
+            // classic
+            // DrawText("f", xPos + textOffset, yPos + textOffset, cellSize/2, RED);
+            DrawRectangleRounded(
+                    {(float)(xPos + border), (float)(yPos + border), (float)(cellSize - border), (float)(cellSize - border)}, 
+                    0.3, 4, flag
+            );
         }
     }
     else if (cell.revealed || lost)
     {
-        DrawRectangle(xPos + border, yPos + border, cellSize - border, cellSize - border, color);
-        if (cell.adjacentMines > 0) DrawText(TextFormat("%d", cell.adjacentMines), xPos + textOffset, yPos + textOffset, cellSize/2, numberColors[cell.adjacentMines]);
+        // classic
+        // DrawRectangle(xPos + border, yPos + border, cellSize - border, cellSize - border, color);
+        // modern
+        DrawRectangleRounded(
+                {(float)(xPos + border), (float)(yPos + border), (float)(cellSize - border), (float)(cellSize - border)},                 
+                0.3, 4, bg
+        );
+        //if (cell.adjacentMines > 0) DrawText(TextFormat("%d", cell.adjacentMines), xPos + textOffset, yPos + textOffset, cellSize/2, numberColorsPastel[cell.adjacentMines]);
     }
     if (cell.hasMine && lost)
     {
         DrawRectangle(xPos, yPos, cellSize, cellSize, RED);
     }
-}
-
-void Minesweeper::Draw() const
-{
-    for (int y = 0; y < height; ++y)
-    for (int x = 0; x < width; ++x)
-    {
-        DrawCell(grid[index(x,y)], x, y);
-    }
-}
-
-void Minesweeper::ResetMap()
-{
-    for (int i = 0; i < width * height; ++i)
-        grid[i] = Cell(false);
-    won = false;
-    lost = false;
-    bufferQueue = {};
-    revealQueue = {};
 }
 
 void Minesweeper::GenerateMines(float probability, int x, int y)
@@ -293,3 +388,5 @@ void Minesweeper::PrintQueue()
         std::cout << "(" << p.first << ", " << p.second << ")" << std::endl;
     }
 }
+
+

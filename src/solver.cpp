@@ -1,14 +1,15 @@
 #include "solver.h"
 #include "minesweeper.h"
+
 #include <algorithm>
 #include <iostream>
 
-Solver::Solver(Minesweeper& game, SelectionMode mode)
-    : game(game), mode(mode), last({0, 0})
+Solver::Solver(SelectionMode mode)
+    : mode(mode), last({0, 0})
 {
 }
 
-std::vector<std::pair<int,int>> Solver::getCandidates() const
+std::vector<std::pair<int,int>> Solver::getCandidates(Minesweeper& game) const
 {
     int width = game.getWidth();
     int height = game.getHeight();
@@ -59,13 +60,13 @@ std::vector<std::pair<int,int>> Solver::getCandidates() const
 
 // Called once per solver tick from main.cpp
 // Make one logical move: flag a mine, or reveal a safe cell
-void Solver::Step()
+void Solver::Step(Minesweeper& game)
 {
-    auto candidates = getCandidates();
+    auto candidates = getCandidates(game);
     bool success = false;
     for (auto p : candidates)
     {
-        if (tryCell(p.first, p.second))
+        if (tryCell(game, p.first, p.second))
         {
             last = {p.first, p.second};
             success = true;
@@ -75,7 +76,7 @@ void Solver::Step()
     //if (!success) game.ResetMap();
 }
 
-bool Solver::tryCell(int x, int y)
+bool Solver::tryCell(Minesweeper& game, int x, int y)
 {
     const Cell& cell = game.getCell(x, y);
 
@@ -94,7 +95,7 @@ bool Solver::tryCell(int x, int y)
     //std::cout << "borderCell: (" << x << ", " << y << ")\n";
 
     // gather unrevealed and flagged neighbours
-    auto stats = getNeighbourStats(x, y);
+    auto stats = getNeighbourStats(game, x, y);
     int numFlagged = stats.first;
     int numUnrevealed = stats.second;
     //std::cout << "numFlagged:    " << numFlagged << "\n";
@@ -121,7 +122,7 @@ bool Solver::tryCell(int x, int y)
     return false;
 }
 
-const std::pair<int, int> Solver::getNeighbourStats(int x, int y) const
+const std::pair<int, int> Solver::getNeighbourStats(Minesweeper& game, int x, int y) const
 {
     int numFlagged = 0;
     int numUnrevealed = 0;

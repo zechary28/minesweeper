@@ -1,5 +1,5 @@
 #include "cell.h"
-#include <raylib.h>
+//#include <raylib.h>
 
 Cell::Cell(bool hasMine)
     : hasMine(hasMine), revealed(false), flagged(false), visited(false)
