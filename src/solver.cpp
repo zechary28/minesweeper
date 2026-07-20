@@ -73,7 +73,13 @@ void Solver::Step(Minesweeper& game)
             return;
         }
     }
-    //if (!success) game.ResetMap();
+    // if (!success) // if no solvable tile, open all tiles
+    // {
+    //     for (auto p : candidates)
+    //     {
+    //         game.RevealCell(p.first, p.second);
+    //     }
+    // }
 }
 
 bool Solver::tryCell(Minesweeper& game, int x, int y)

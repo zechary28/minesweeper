@@ -8,11 +8,11 @@
 #include <vector>
 #include <memory>
 
-constexpr int screenWidth = 1800;
-constexpr int screenHeight = 1000;
+int screenWidth = 700;
+int screenHeight = 700;
 constexpr int cellSize = 20;
-constexpr int gridW = screenWidth / cellSize;
-constexpr int gridH = screenHeight / cellSize;
+int gridW = screenWidth / cellSize;
+int gridH = screenHeight / cellSize;
 
 constexpr float HUE_STEP         = 70.0f;
 constexpr float THEME_SATURATION = 0.4f;
@@ -24,6 +24,7 @@ struct GameSlot {
 
 int main() 
 {            
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "Minesweeper");
     SetTargetFPS(60);
     
@@ -32,17 +33,17 @@ int main()
             [=](ThemeColor t) -> std::unique_ptr<IGame> {
                 return std::make_unique<Minesweeper>(gridW, gridH, cellSize, 0.14f, t);
             }
-        },
-        {
-            [=](ThemeColor t) -> std::unique_ptr<IGame> {
-                return std::make_unique<GameOfLife>(gridW, gridH, cellSize, t);
-            }
-        },
-        {
-            [=](ThemeColor t) -> std::unique_ptr<IGame> {
-                return std::make_unique<LangtonsAnt>(gridW, gridH, cellSize, t);
-            }
         }
+        // {
+        //     [=](ThemeColor t) -> std::unique_ptr<IGame> {
+        //         return std::make_unique<GameOfLife>(gridW, gridH, cellSize, t);
+        //     }
+        // },
+        // {
+        //     [=](ThemeColor t) -> std::unique_ptr<IGame> {
+        //         return std::make_unique<LangtonsAnt>(gridW, gridH, cellSize, t);
+        //     }
+        // }
     };
 
     float hue = 0.0f;

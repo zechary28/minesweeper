@@ -317,7 +317,7 @@ void Minesweeper::DrawCell(Cell cell, int x, int y) const
     }
     if (cell.hasMine && lost)
     {
-        DrawRectangle(xPos, yPos, cellSize, cellSize, RED);
+        DrawRectangle(xPos, yPos, cellSize, cellSize, flag);
     }
 }
 
