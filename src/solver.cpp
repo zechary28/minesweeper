@@ -75,50 +75,82 @@ void Solver::Step()
     //if (!success) game.ResetMap();
 }
 
+// does the necessary checks and actions
 bool Solver::tryCell(int x, int y)
 {
-    const Cell& cell = game.getCell(x, y);
-
-    // valid center cell
-    bool found = false;
-    if (cell.revealed && cell.adjacentMines != 0) 
-    {
-        // check neighbours if border
-        for (auto p : game.getNeighbours(x, y))
-        {
-            Cell neighbourCell = game.getCell(p.first, p.second);
-            if (!neighbourCell.revealed && !neighbourCell.flagged) found = true;
-        }
-    }
-    if (!found) return false;
-    //std::cout << "borderCell: (" << x << ", " << y << ")\n";
+    if (!isBorderCell(x, y)) return false;
 
     // gather unrevealed and flagged neighbours
     auto stats = getNeighbourStats(x, y);
     int numFlagged = stats.first;
     int numUnrevealed = stats.second;
-    //std::cout << "numFlagged:    " << numFlagged << "\n";
-    //std::cout << "numUnrevealed: " << numUnrevealed << "\n";
 
-    // if flagged neighbours == adjacentMines, reveal the rest
-    if (numFlagged == cell.adjacentMines) 
+    // rule 1: if flagged neighbours == adjacentMines, reveal the rest
+    if (passRule1(x, y, numFlagged, numUnrevealed)) 
     {
-        game.RevealCell(x, y);
-        //std::cout << "revealed cell\n";
+        game.RevealCell(x, y); // game will chord cell
         return true;
     }
-    // if unrevealed neighbours == adjacentMines - flagged, flag them all
-    else if (numUnrevealed == cell.adjacentMines - numFlagged)
+
+    // rule 2: if unrevealed neighbours == adjacentMines - flagged, flag all
+    if (passRule2(x, y, numFlagged, numUnrevealed))
     {
         for (auto p : game.getNeighbours(x, y)) 
         {
             Cell neighbourCell = game.getCell(p.first, p.second);
             if (!neighbourCell.flagged && !neighbourCell.revealed) game.FlagCell(p.first, p.second);
         }
-        //std::cout << "Flagged cells\n";
         return true;
     }
+
     return false;
+}
+
+// checks that the cell is along the border of the solved area
+// is called by Solver::tryCell()
+bool Solver::isBorderCell(int x, int y) const
+{
+    const Cell& cell = game.getCell(x, y);
+
+    // valid center cell
+    if (cell.revealed && cell.adjacentMines != 0) 
+    {
+        // check neighbours if border
+        for (auto p : game.getNeighbours(x, y))
+        {
+            Cell neighbourCell = game.getCell(p.first, p.second);
+            if (!neighbourCell.revealed && !neighbourCell.flagged) return true;
+        }
+    }
+    return false;
+}
+
+// checks that the cell is solvable, ie passes the two deterministic rules
+// 1. if flagged neighbours == adjacentMines              => reveal the rest
+// 2. if unrevealed neighbours == adjacentMines - flagged => flag them all
+bool Solver::isSolvableCell(int x, int y) const
+{
+    // gather unrevealed and flagged neighbours
+    auto stats = getNeighbourStats(x, y);
+    int numFlagged = stats.first;
+    int numUnrevealed = stats.second;
+
+    return (passRule1(x, y, numFlagged, numUnrevealed) || 
+            passRule2(x, y, numFlagged, numUnrevealed));
+}
+
+// rule 1: if flagged neighbours == adjacentMines, reveal the rest
+bool Solver::passRule1(int x, int y, int numFlagged, int numUnrevealed) const
+{
+    const Cell& cell = game.getCell(x, y);
+    return numFlagged == cell.adjacentMines;
+}
+
+// rule 2: if unrevealed neighbours == adjacentMines - flagged, flag them all
+bool Solver::passRule2(int x, int y, int numFlagged, int numUnrevealed) const
+{
+    const Cell& cell = game.getCell(x, y);
+    return numUnrevealed == cell.adjacentMines - numFlagged;
 }
 
 const std::pair<int, int> Solver::getNeighbourStats(int x, int y) const

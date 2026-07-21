@@ -20,5 +20,9 @@ private:
 
     std::vector<std::pair<int,int>> getCandidates() const;
     bool tryCell(int x, int y);
+    bool isBorderCell(int x, int y) const;
+    bool isSolvableCell(int x, int y) const;
+    bool passRule1(int x, int y, int numFlagged, int numUnrevealed) const;
+    bool passRule2(int x, int y, int numFlagged, int numUnrevealed) const;
     const std::pair<int, int> getNeighbourStats(int x, int y) const;
 };
