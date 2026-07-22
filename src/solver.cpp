@@ -84,7 +84,7 @@ void Solver::Step(Minesweeper& game)
 
 bool Solver::tryCell(Minesweeper& game, int x, int y)
 {
-    if (!isBorderCell(x, y)) return false;
+    if (!isBorderCell(game, x, y)) return false;
 
     // gather unrevealed and flagged neighbours
     auto stats = getNeighbourStats(game, x, y);
@@ -92,14 +92,14 @@ bool Solver::tryCell(Minesweeper& game, int x, int y)
     int numUnrevealed = stats.second;
 
     // rule 1: if flagged neighbours == adjacentMines, reveal the rest
-    if (passRule1(x, y, numFlagged, numUnrevealed)) 
+    if (passRule1(game, x, y, numFlagged, numUnrevealed)) 
     {
         game.RevealCell(x, y); // game will chord cell
         return true;
     }
 
     // rule 2: if unrevealed neighbours == adjacentMines - flagged, flag all
-    if (passRule2(x, y, numFlagged, numUnrevealed))
+    if (passRule2(game, x, y, numFlagged, numUnrevealed))
     {
         for (auto p : game.getNeighbours(x, y)) 
         {
