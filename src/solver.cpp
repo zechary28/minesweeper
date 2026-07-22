@@ -63,23 +63,22 @@ std::vector<std::pair<int,int>> Solver::getCandidates(Minesweeper& game) const
 void Solver::Step(Minesweeper& game)
 {
     auto candidates = getCandidates(game);
-    bool success = false;
+    std::vector<std::pair<int, int>> guessPool;
     for (auto p : candidates)
     {
+        if (isFrontierCell(game, p.first, p.second)) guessPool.emplace_back(p.first, p.second);
+
         if (tryCell(game, p.first, p.second))
         {
             last = {p.first, p.second};
-            success = true;
             return;
         }
     }
-    // if (!success) // if no solvable tile, open all tiles
-    // {
-    //     for (auto p : candidates)
-    //     {
-    //         game.RevealCell(p.first, p.second);
-    //     }
-    // }
+
+    if (guessPool.empty()) return;
+    std::pair<int, int> guess = guessPool.front();
+    game.RevealCell(guess.first, guess.second);
+    last = {guess.first, guess.second};
 }
 
 bool Solver::tryCell(Minesweeper& game, int x, int y)
@@ -118,15 +117,27 @@ bool Solver::isBorderCell(int x, int y) const
 {
     const Cell& cell = game.getCell(x, y);
 
-    // valid center cell
-    if (cell.revealed && cell.adjacentMines != 0) 
+    // validate cell
+    if (!cell.revealed || cell.adjacentMines == 0) return false;
+    
+    // check neighbours if border
+    for (auto p : game.getNeighbours(x, y))
     {
-        // check neighbours if border
-        for (auto p : game.getNeighbours(x, y))
-        {
-            Cell neighbourCell = game.getCell(p.first, p.second);
-            if (!neighbourCell.revealed && !neighbourCell.flagged) return true;
-        }
+        Cell neighbourCell = game.getCell(p.first, p.second);
+        if (!neighbourCell.revealed && !neighbourCell.flagged) return true;
+    }
+    return false;
+}
+
+bool Solver::isFrontierCell(Minesweeper& game, int x, int y) const
+{
+    const Cell& cell = game.getCell(x, y);
+    if (cell.revealed || cell.flagged) return false;
+
+    // unrevealed cell adjacent to at least one revealed cell
+    for (auto p : game.getNeighbours(x, y))
+    {
+        if (game.getCell(p.first, p.second).revealed) return true;
     }
     return false;
 }

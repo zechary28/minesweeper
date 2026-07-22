@@ -22,6 +22,7 @@ private:
     std::vector<std::pair<int,int>> getCandidates(Minesweeper& game) const;
     bool tryCell(Minesweeper& game, int x, int y);
     bool isBorderCell(Minesweeper& game, int x, int y) const;
+    bool isFrontierCell(Minesweeper& game, int x, int y) const;
     bool isSolvableCell(Minesweeper& game, int x, int y) const;
     bool passRule1(Minesweeper& game, int x, int y, int numFlagged, int numUnrevealed) const;
     bool passRule2(Minesweeper& game, int x, int y, int numFlagged, int numUnrevealed) const;
