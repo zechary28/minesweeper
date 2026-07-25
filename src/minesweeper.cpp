@@ -47,6 +47,10 @@ Minesweeper::Minesweeper(int width, int height, int cellSize, float mineProbabil
       solver(SelectionMode::NearestToLast),
       theme(theme)
 {
+    int x = GetRandomValue(0, width - 1);
+    int y = GetRandomValue(0, height - 1);
+    GenerateMines(mineProbability, x, y);
+    RevealCell(x, y);
 }
 
 
