@@ -12,7 +12,7 @@
 constexpr int WINDOW_WIDTH = 1200;
 constexpr int WINDOW_HEIGHT = 800;
 
-constexpr int CELL_SIZE = 20;
+constexpr int CELL_SIZE = 5;
 
 constexpr float HUE_STEP         = 70.0f;
 constexpr float THEME_SATURATION = 0.4f;

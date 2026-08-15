@@ -113,7 +113,7 @@ bool Solver::tryCell(Minesweeper& game, int x, int y)
 
 // checks that the cell is along the border of the solved area
 // is called by Solver::tryCell()
-bool Solver::isBorderCell(int x, int y) const
+bool Solver::isBorderCell(Minesweeper& game, int x, int y) const
 {
     const Cell& cell = game.getCell(x, y);
 
@@ -145,32 +145,32 @@ bool Solver::isFrontierCell(Minesweeper& game, int x, int y) const
 // checks that the cell is solvable, ie passes the two deterministic rules
 // 1. if flagged neighbours == adjacentMines              => reveal the rest
 // 2. if unrevealed neighbours == adjacentMines - flagged => flag them all
-bool Solver::isSolvableCell(int x, int y) const
+bool Solver::isSolvableCell(Minesweeper& game, int x, int y) const
 {
     // gather unrevealed and flagged neighbours
-    auto stats = getNeighbourStats(x, y);
+    auto stats = getNeighbourStats(game, x, y);
     int numFlagged = stats.first;
     int numUnrevealed = stats.second;
 
-    return (passRule1(x, y, numFlagged, numUnrevealed) || 
-            passRule2(x, y, numFlagged, numUnrevealed));
+    return (passRule1(game, x, y, numFlagged, numUnrevealed) || 
+            passRule2(game, x, y, numFlagged, numUnrevealed));
 }
 
 // rule 1: if flagged neighbours == adjacentMines, reveal the rest
-bool Solver::passRule1(int x, int y, int numFlagged, int numUnrevealed) const
+bool Solver::passRule1(Minesweeper& game, int x, int y, int numFlagged, int numUnrevealed) const
 {
     const Cell& cell = game.getCell(x, y);
     return numFlagged == cell.adjacentMines;
 }
 
 // rule 2: if unrevealed neighbours == adjacentMines - flagged, flag them all
-bool Solver::passRule2(int x, int y, int numFlagged, int numUnrevealed) const
+bool Solver::passRule2(Minesweeper& game, int x, int y, int numFlagged, int numUnrevealed) const
 {
     const Cell& cell = game.getCell(x, y);
     return numUnrevealed == cell.adjacentMines - numFlagged;
 }
 
-const std::pair<int, int> Solver::getNeighbourStats(int x, int y) const
+const std::pair<int, int> Solver::getNeighbourStats(Minesweeper& game, int x, int y) const
 {
     int numFlagged = 0;
     int numUnrevealed = 0;
