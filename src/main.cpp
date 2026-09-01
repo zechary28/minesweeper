@@ -61,7 +61,7 @@ int main()
 
             if (timer >= period)
             {
-                if (minesweeper.IsIdle()) solver.Step();
+                // if (minesweeper.IsIdle()) solver.Step();
                 minesweeper.Update();
                 timer -= period;   // keep leftover time
             }
