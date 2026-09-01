@@ -1,100 +1,130 @@
-#include <raylib.h>
 #include "minesweeper.h"
-#include "solver.h"
+#include "game-of-life.h"
+#include "langtons-ant.h"
+#include "theme.h"
 
-int main() 
-{    
-    constexpr int screenWidth = 1800;
-    constexpr int screenHeight = 1000;
-    int cellSize = 20;
-    float mineProbability = 0.14f;
-    
-    InitWindow(screenWidth, screenHeight, "Minesweeper");
+#include <raylib.h>
+#include <iostream>
+#include <functional>
+#include <vector>
+#include <memory>
+
+constexpr int WINDOW_WIDTH = 1200;
+constexpr int WINDOW_HEIGHT = 800;
+
+constexpr int CELL_SIZE = 20;
+
+constexpr float HUE_STEP         = 70.0f;
+constexpr float THEME_SATURATION = 0.4f;
+constexpr float THEME_VALUE      = 0.85f;
+
+struct GameSlot {
+    std::function<std::unique_ptr<IGame>(ThemeColor)> make;
+};
+
+int main()
+{   
+    SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_ALWAYS_RUN);
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Minesweeper");
+
+    bool isFullscreen = false;
+    int screenWidth  = WINDOW_WIDTH;
+    int screenHeight = WINDOW_HEIGHT;
+    int monitor = 0;
+
+    int gridW = screenWidth / CELL_SIZE;
+    int gridH = screenHeight / CELL_SIZE;
+
     SetTargetFPS(60);
-
-    Minesweeper minesweeper(screenWidth / cellSize, screenHeight / cellSize, cellSize);
-    Solver solver(minesweeper, SelectionMode::NearestToLast);
-
-    bool generated = false;
-    bool reset = false;
-    float timer = 0.0f;
-    float period = 0.02f;
     
+    std::vector<GameSlot> slots = {
+        {
+            [&](ThemeColor t) -> std::unique_ptr<IGame> {
+                return std::make_unique<Minesweeper>(gridW, gridH, CELL_SIZE, 0.13f, t);
+            }
+        }
+        // {
+        //     [=](ThemeColor t) -> std::unique_ptr<IGame> {
+        //         return std::make_unique<GameOfLife>(gridW, gridH, CELL_SIZE, t);
+        //     }
+        // },
+        // {
+        //     [=](ThemeColor t) -> std::unique_ptr<IGame> {
+        //         return std::make_unique<LangtonsAnt>(gridW, gridH, CELL_SIZE, t);
+        //     }
+        // }
+    };
+
+    float hue = 0.0f;
+    int gameIndex = 0;
+
+    auto makeTheme = [&]() -> ThemeColor {
+        return { hue, THEME_SATURATION, THEME_VALUE };
+    };
+ 
+    auto nextGame = [&]() -> std::unique_ptr<IGame> {
+        hue = fmod(hue + HUE_STEP, 360.0f);
+        return slots[gameIndex].make(makeTheme());
+    };
+
+    std::unique_ptr<IGame> current = slots[gameIndex].make(makeTheme());
+
+    SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
+ 
     while (!WindowShouldClose())
     {        
-        float dt = GetFrameTime(); // seconds since last frame
-        timer += dt;
 
-        // first click
-        if (!generated)
+        if (IsKeyPressed(KEY_F))  // cycle through monitors
         {
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            if (!isFullscreen)
             {
-                Vector2 mouse = GetMousePosition();
-                int x = mouse.x/cellSize;
-                int y = mouse.y/cellSize;
-                minesweeper.GenerateMines(mineProbability, x, y);
-                generated = true;
-                minesweeper.RevealCell(x, y);
+                // go fullscreen on whichever monitor the window is currently on
+                screenWidth  = GetMonitorWidth(monitor);
+                screenHeight = GetMonitorHeight(monitor);
+                SetWindowSize(screenWidth, screenHeight);
+                ToggleFullscreen();
+                isFullscreen = true;
             }
+            else
+            {
+                // back to fixed window
+                ToggleFullscreen();
+                SetWindowState(FLAG_WINDOW_UNDECORATED);
+                screenWidth  = WINDOW_WIDTH;
+                screenHeight = WINDOW_HEIGHT;
+                SetWindowSize(screenWidth, screenHeight);
+                isFullscreen = false;
+            }
+
+            // recreate game for new dimensions
+            gridW = screenWidth / CELL_SIZE;
+            gridH = screenHeight / CELL_SIZE;
+            gameIndex = (gameIndex + 1) % static_cast<int>(slots.size());
+            current = nextGame();
+
         }
 
-        // game ongoing
-        else if (!minesweeper.IsWon() && !minesweeper.IsLost())
+        // check if monitor has changed, DO NOTHING FOR NOW
+        int currentMonitor = GetCurrentMonitor();
+        if (currentMonitor != monitor)
         {
-            // receive user input
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            {
-                Vector2 mouse = GetMousePosition();
-                int x = mouse.x/cellSize;
-                int y = mouse.y/cellSize;
-                //solver.Step();
-                minesweeper.RevealCell(x, y);
-            }
-            else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
-            {
-                Vector2 mouse = GetMousePosition();
-                int x = mouse.x/cellSize;
-                int y = mouse.y/cellSize;
-                minesweeper.FlagCell(x, y);
-            }
-
-            if (timer >= period)
-            {
-                if (minesweeper.IsIdle()) solver.Step();
-                minesweeper.Update();
-                timer -= period;   // keep leftover time
-            }
+            monitor = currentMonitor;
+            std::cout << "changing monitor to " << std::to_string(monitor) << "\n";
         }
 
-        // game won/lost
-        else if (minesweeper.IsWon() || minesweeper.IsLost())
+        if (current->IsOver()) 
         {
-            reset = false;
-            // restart game
-            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-            {
-                if (!reset) {
-                    minesweeper.ResetMap();
-                    reset = true;
-                    generated = false;
-                }
-                else
-                {
-                    Vector2 mouse = GetMousePosition();
-                    int x = mouse.x/cellSize;
-                    int y = mouse.y/cellSize;
-                    minesweeper.GenerateMines(mineProbability, x, y);
-                    generated = true;
-                    minesweeper.RevealCell(x, y);
-                }
-            }
+            gameIndex = (gameIndex + 1) % static_cast<int>(slots.size());
+            current = nextGame();
         }
+
+        float dt = GetFrameTime();
+        current->HandleInput();
+        current->Update(dt);
 
         BeginDrawing();
         ClearBackground(DARKGRAY);
-        minesweeper.Draw();
-
+        current->Draw();
         EndDrawing();
     }
     

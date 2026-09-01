@@ -1,20 +1,24 @@
+#pragma once
+
+#include "IGame.h"
+#include "cell.h"
+#include "solver.h"
+#include "theme.h"
+
 #include <vector>
 #include <queue>
 #include <cstdint>
-#include "cell.h"
-//#include "solver.h"
-//#include "IGame.h"
 
-class Minesweeper
+class Minesweeper : public IGame
 {
 public:
-    Minesweeper(int width, int height, int cellSize);
+    Minesweeper(int width, int height, int cellSize, float mineProbability, ThemeColor theme);
 
-    // void Update(float dt) override;
-    void Draw() const;
-    // void HandleInput() override;
-    // bool IsOver() const override;
-    // void Reset() override;
+    void Update(float dt) override;
+    void Draw() const override;
+    void HandleInput() override;
+    bool IsOver() const override;
+    void Reset() override;
 
     void RevealCell(int x, int y);   // called on left click
     void SingleReveal(int x, int y);
@@ -23,12 +27,11 @@ public:
     NeighbourList getNeighbours(int x, int y) const;
     int getWidth() const;
     int getHeight() const;
-    void Update();
+    void SolverStep();
     void CheckIsWon();
     bool IsWon() const;
     bool IsLost() const;
     bool IsIdle() const;
-    void ResetMap();
     void DrawCell(Cell cell, int x, int y) const;
     void GenerateMines(float probability, int x, int y);
     void PrintQueue();
@@ -37,19 +40,27 @@ private:
     int width;
     int height;
     int cellSize;
+    float mineProbability;
+
     bool won;
     bool lost;
-
     float timer;
     float period;
+    
+    bool reset;
     bool generated;
-    //Solver solver;
 
     std::vector<Cell> grid;
     std::queue<std::pair<int, int>> revealQueue;
     std::queue<std::pair<int, int>> bufferQueue;
+    std::vector<float> animationProgress;
+    float animationDuration;
+
+    ThemeColor theme;
+    Solver solver;
 
     int index(int x, int y) const;
     int enumerateMines(int x, int y);
     void enumerateAllMines();
+
 };

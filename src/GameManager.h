@@ -1,17 +1,34 @@
-// GameManager.h
+#pragma once
+#include <memory>
+#include "IGame.h"
+
 class GameManager {
 public:
-    GameManager();
-    void Update();
-    void Draw() const;
-    void HandleInput();
+    GameManager(std::unique_ptr<IGame> game)
+        : current(std::move(game))
+    {}
+
+    void Update(float dt)
+    {
+        if (!current->IsOver())
+            current->Update(dt);
+    }
+
+    void Draw() const
+    {
+        current->Draw();
+    }
+
+    void HandleInput()
+    {
+        current->HandleInput();
+    }
+
+    bool IsOver() const
+    {
+        return current->IsOver();
+    }
 
 private:
-    std::vector<std::unique_ptr<IGame>> games;
-    int current = 0;
-    float resetTimer = 0.0f;
-    float resetDelay = 2.0f;
-    GameState state;
-
-    void nextGame();
+    std::unique_ptr<IGame> current;
 };

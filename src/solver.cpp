@@ -1,14 +1,15 @@
 #include "solver.h"
 #include "minesweeper.h"
+
 #include <algorithm>
 #include <iostream>
 
-Solver::Solver(Minesweeper& game, SelectionMode mode)
-    : game(game), mode(mode), last({0, 0})
+Solver::Solver(SelectionMode mode)
+    : mode(mode), last({0, 0})
 {
 }
 
-std::vector<std::pair<int,int>> Solver::getCandidates() const
+std::vector<std::pair<int,int>> Solver::getCandidates(Minesweeper& game) const
 {
     int width = game.getWidth();
     int height = game.getHeight();
@@ -59,41 +60,45 @@ std::vector<std::pair<int,int>> Solver::getCandidates() const
 
 // Called once per solver tick from main.cpp
 // Make one logical move: flag a mine, or reveal a safe cell
-void Solver::Step()
+void Solver::Step(Minesweeper& game)
 {
-    auto candidates = getCandidates();
-    bool success = false;
+    auto candidates = getCandidates(game);
+    std::vector<std::pair<int, int>> guessPool;
     for (auto p : candidates)
     {
-        if (tryCell(p.first, p.second))
+        if (isFrontierCell(game, p.first, p.second)) guessPool.emplace_back(p.first, p.second);
+
+        if (tryCell(game, p.first, p.second))
         {
             last = {p.first, p.second};
-            success = true;
             return;
         }
     }
-    //if (!success) game.ResetMap();
+
+    if (guessPool.empty()) return;
+    std::pair<int, int> guess = guessPool.front();
+    game.RevealCell(guess.first, guess.second);
+    last = {guess.first, guess.second};
 }
 
-// does the necessary checks and actions
-bool Solver::tryCell(int x, int y)
+bool Solver::tryCell(Minesweeper& game, int x, int y)
 {
-    if (!isBorderCell(x, y)) return false;
+    if (!isBorderCell(game, x, y)) return false;
 
     // gather unrevealed and flagged neighbours
-    auto stats = getNeighbourStats(x, y);
+    auto stats = getNeighbourStats(game, x, y);
     int numFlagged = stats.first;
     int numUnrevealed = stats.second;
 
     // rule 1: if flagged neighbours == adjacentMines, reveal the rest
-    if (passRule1(x, y, numFlagged, numUnrevealed)) 
+    if (passRule1(game, x, y, numFlagged, numUnrevealed)) 
     {
         game.RevealCell(x, y); // game will chord cell
         return true;
     }
 
     // rule 2: if unrevealed neighbours == adjacentMines - flagged, flag all
-    if (passRule2(x, y, numFlagged, numUnrevealed))
+    if (passRule2(game, x, y, numFlagged, numUnrevealed))
     {
         for (auto p : game.getNeighbours(x, y)) 
         {
@@ -108,19 +113,31 @@ bool Solver::tryCell(int x, int y)
 
 // checks that the cell is along the border of the solved area
 // is called by Solver::tryCell()
-bool Solver::isBorderCell(int x, int y) const
+bool Solver::isBorderCell(Minesweeper& game, int x, int y) const
 {
     const Cell& cell = game.getCell(x, y);
 
-    // valid center cell
-    if (cell.revealed && cell.adjacentMines != 0) 
+    // validate cell
+    if (!cell.revealed || cell.adjacentMines == 0) return false;
+    
+    // check neighbours if border
+    for (auto p : game.getNeighbours(x, y))
     {
-        // check neighbours if border
-        for (auto p : game.getNeighbours(x, y))
-        {
-            Cell neighbourCell = game.getCell(p.first, p.second);
-            if (!neighbourCell.revealed && !neighbourCell.flagged) return true;
-        }
+        Cell neighbourCell = game.getCell(p.first, p.second);
+        if (!neighbourCell.revealed && !neighbourCell.flagged) return true;
+    }
+    return false;
+}
+
+bool Solver::isFrontierCell(Minesweeper& game, int x, int y) const
+{
+    const Cell& cell = game.getCell(x, y);
+    if (cell.revealed || cell.flagged) return false;
+
+    // unrevealed cell adjacent to at least one revealed cell
+    for (auto p : game.getNeighbours(x, y))
+    {
+        if (game.getCell(p.first, p.second).revealed) return true;
     }
     return false;
 }
@@ -128,32 +145,32 @@ bool Solver::isBorderCell(int x, int y) const
 // checks that the cell is solvable, ie passes the two deterministic rules
 // 1. if flagged neighbours == adjacentMines              => reveal the rest
 // 2. if unrevealed neighbours == adjacentMines - flagged => flag them all
-bool Solver::isSolvableCell(int x, int y) const
+bool Solver::isSolvableCell(Minesweeper& game, int x, int y) const
 {
     // gather unrevealed and flagged neighbours
-    auto stats = getNeighbourStats(x, y);
+    auto stats = getNeighbourStats(game, x, y);
     int numFlagged = stats.first;
     int numUnrevealed = stats.second;
 
-    return (passRule1(x, y, numFlagged, numUnrevealed) || 
-            passRule2(x, y, numFlagged, numUnrevealed));
+    return (passRule1(game, x, y, numFlagged, numUnrevealed) || 
+            passRule2(game, x, y, numFlagged, numUnrevealed));
 }
 
 // rule 1: if flagged neighbours == adjacentMines, reveal the rest
-bool Solver::passRule1(int x, int y, int numFlagged, int numUnrevealed) const
+bool Solver::passRule1(Minesweeper& game, int x, int y, int numFlagged, int numUnrevealed) const
 {
     const Cell& cell = game.getCell(x, y);
     return numFlagged == cell.adjacentMines;
 }
 
 // rule 2: if unrevealed neighbours == adjacentMines - flagged, flag them all
-bool Solver::passRule2(int x, int y, int numFlagged, int numUnrevealed) const
+bool Solver::passRule2(Minesweeper& game, int x, int y, int numFlagged, int numUnrevealed) const
 {
     const Cell& cell = game.getCell(x, y);
     return numUnrevealed == cell.adjacentMines - numFlagged;
 }
 
-const std::pair<int, int> Solver::getNeighbourStats(int x, int y) const
+const std::pair<int, int> Solver::getNeighbourStats(Minesweeper& game, int x, int y) const
 {
     int numFlagged = 0;
     int numUnrevealed = 0;
