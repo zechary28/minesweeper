@@ -44,8 +44,10 @@ Minesweeper::Minesweeper(int width, int height, int cellSize, float mineProbabil
     : width(width), height(height), cellSize(cellSize), mineProbability(mineProbability), won(false), lost(false),
       timer(0.0f), period(0.05f), reset(false), generated(false),
       grid(width * height, Cell(false)),
-      solver(SelectionMode::NearestToLast),
-      theme(theme)
+      animationProgress(width * height, 1.0f),
+      animationDuration(0.05f),
+      theme(theme),
+      solver(SelectionMode::NearestToLast)
 {
     int x = GetRandomValue(0, width - 1);
     int y = GetRandomValue(0, height - 1);
@@ -58,17 +60,21 @@ Minesweeper::Minesweeper(int width, int height, int cellSize, float mineProbabil
 
 void Minesweeper::Update(float dt)
 {
+    for (float& progress : animationProgress)
+    {
+        progress = std::min(progress + dt / animationDuration, 1.0f);
+    }
+
     timer += dt;
     if (timer >= period)
     {
         if (IsIdle()) solver.Step(*this);
-        // update loop condition
+        // update loop condition for insta-fill
         while (!revealQueue.empty()) 
         {
-            //int x = revealQueue.front().first;
-            //int y = revealQueue.front().second;
             auto [x, y] = revealQueue.front();
             revealQueue.pop();
+            animationProgress[index(x, y)] = 0.0f;
             Cell& cell = grid[index(x, y)];
             cell.revealed = true;
 
@@ -242,6 +248,7 @@ void Minesweeper::SingleReveal(int x, int y)
         return;
     }
     bufferQueue.push({x, y});
+    animationProgress[index(x, y)] = 0.0f;
 }
 
 void Minesweeper::CheckIsWon() {
@@ -271,53 +278,45 @@ void Minesweeper::DrawCell(Cell cell, int x, int y) const
     Color flag = getComplement(theme);
 
     int border = 1;
-    // int bigBorder = cellSize/8;
     int xPos = x * cellSize;
     int yPos = y * cellSize;
-    // int textOffset = cellSize / 4;
-    // float scale = 1.0f;
-    // float animPadding = (cellSize / 2.0f) * (1.0f - scale);
-    // Color color = cell.visited && debug ? SKYBLUE : themeColor;
+
+    // animation
+    float t = animationProgress[index(x, y)];
+    // curve function
+    float smooth = t * t * (3.0f - 2.0f * t);  // base smoothstep
+    float scale = pow(smooth, 2.0f);            // sharpen it, increase exponent to taste
+
+    float animationPadding = (cellSize / 2.0f) * (1.0f - scale);
 
     // base colour
     DrawRectangle(xPos, yPos, cellSize, cellSize, bg);
-    if (!cell.revealed)
+    DrawRectangleRounded(
+            {(float)(xPos + border), 
+             (float)(yPos + border),
+             (float)(cellSize - border), 
+             (float)(cellSize - border)}, 
+            0.3, 4, fg
+    );
+    if (cell.flagged)
     {
-        // highlight
-        // float fx = (float)xPos;
-        // float fy = (float)yPos;
-        // float fs = (float)cellSize;
-        // DrawTriangle((Vector2){fx, fy},
-        //              (Vector2){fx, fy + fs},
-        //              (Vector2){fx + fs, fy}, highlight);
-        // center square
-        // classic style
-        // DrawRectangle(xPos + bigBorder, yPos + bigBorder, cellSize - (2 * bigBorder), cellSize - (2 * bigBorder), color);
-        // modern
         DrawRectangleRounded(
-                {(float)(xPos + border), (float)(yPos + border), (float)(cellSize - border), (float)(cellSize - border)}, 
-                0.3, 4, fg
+                {(float)(xPos + border + animationPadding), 
+                 (float)(yPos + border + animationPadding),
+                 scale * (float)(cellSize - border), 
+                 scale * (float)(cellSize - border)}, 
+                0.3, 4, flag
         );
-        if (cell.flagged)
-        {
-            // classic
-            // DrawText("f", xPos + textOffset, yPos + textOffset, cellSize/2, RED);
-            DrawRectangleRounded(
-                    {(float)(xPos + border), (float)(yPos + border), (float)(cellSize - border), (float)(cellSize - border)}, 
-                    0.3, 4, flag
-            );
-        }
     }
     else if (cell.revealed || lost)
     {
-        // classic
-        // DrawRectangle(xPos + border, yPos + border, cellSize - border, cellSize - border, color);
-        // modern
         DrawRectangleRounded(
-                {(float)(xPos + border), (float)(yPos + border), (float)(cellSize - border), (float)(cellSize - border)},                 
+                {(float)(xPos + border + animationPadding), 
+                 (float)(yPos + border + animationPadding),
+                 scale * (float)(cellSize - border), 
+                 scale * (float)(cellSize - border)}, 
                 0.3, 4, bg
         );
-        //if (cell.adjacentMines > 0) DrawText(TextFormat("%d", cell.adjacentMines), xPos + textOffset, yPos + textOffset, cellSize/2, numberColorsPastel[cell.adjacentMines]);
     }
     if (cell.hasMine && lost)
     {
@@ -343,8 +342,8 @@ void Minesweeper::GenerateMines(float probability, int x, int y)
 
 void Minesweeper::FlagCell(int x, int y)
 {
-    int id = index(x, y);
-    grid[id].Flag();
+    grid[index(x, y)].Flag();
+    animationProgress[index(x, y)] = 0.0f;
 }
 
 int Minesweeper::index(int x, int y) const

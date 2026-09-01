@@ -46,15 +46,18 @@ private:
     bool lost;
     float timer;
     float period;
+    
     bool reset;
     bool generated;
 
     std::vector<Cell> grid;
     std::queue<std::pair<int, int>> revealQueue;
     std::queue<std::pair<int, int>> bufferQueue;
+    std::vector<float> animationProgress;
+    float animationDuration;
 
-    Solver solver;
     ThemeColor theme;
+    Solver solver;
 
     int index(int x, int y) const;
     int enumerateMines(int x, int y);
