@@ -4,7 +4,7 @@
 
 static Color getTheme(ThemeColor t)      { return ColorFromHSV(t.h, t.s, t.v); }
 static Color getShade(ThemeColor t)      { return ColorFromHSV(t.h, t.s * 0.8f, t.v * 0.75f); }
-static Color getComplement(ThemeColor t) { return ColorFromHSV(fmod(t.h + 150.f, 360.f), t.s, t.v); }
+// static Color getComplement(ThemeColor t) { return ColorFromHSV(fmod(t.h + 150.f, 360.f), t.s, t.v); }
 
 GameOfLife::GameOfLife(int width, int height, int cellSize, ThemeColor theme)
     : width(width), height(height), cellSize(cellSize), randomDensity(0.3f), timer(0.0f), period(0.1f), cycles(0), cyclesLimit(1200), theme(theme)
